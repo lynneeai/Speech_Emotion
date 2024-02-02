@@ -111,7 +111,7 @@ trainer.callback_handler.add_callback(No_Loss_Logging_In_Terminal_Callback)
 
 print("Training...")
 # import pdb; pdb.set_trace()
-# trainer.train()
+trainer.train()
 
 ##########
 ## test ##

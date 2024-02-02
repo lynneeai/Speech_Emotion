@@ -111,15 +111,15 @@ trainer.callback_handler.add_callback(No_Loss_Logging_In_Terminal_Callback)
 
 print("Training...")
 # import pdb; pdb.set_trace()
-trainer.train()
+# trainer.train()
 
 ##########
 ## test ##
 ##########
 print(f"Testing...")
 prediction_outputs = trainer.predict(dataset["test"])
-preds = torch.argmax(prediction_outputs.predictions, dim=1).detach().cpu().numpy()
-labels = prediction_outputs.label_ids.detach().cpu().numpy()
+preds = torch.argmax(torch.tensor(prediction_outputs.predictions), dim=1).detach().cpu().numpy()
+labels = prediction_outputs.label_ids
 label_names = _FEAT_DICT["Emotion"]
 report = classification_report(labels, preds, target_names=label_names)
 print(report)

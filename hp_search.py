@@ -24,6 +24,7 @@ parser.add_argument("--with_mlp", action="store_true")
 parser.add_argument("--eval_batch_size", type=int, default=4)
 parser.add_argument("--eval_steps", type=int, default=500)
 parser.add_argument("--save_steps", type=int, default=500)
+parser.add_argument("--fp16", action="store_true")
 parser.add_argument("--output_dir", default="./hp_search_outputs")
 args = parser.parse_args()
 
@@ -51,6 +52,7 @@ training_config = Training_Config(
     per_device_eval_batch_size=args.eval_batch_size,
     eval_steps=args.eval_steps,
     save_steps=args.save_steps,
+    fp16=args.fp16,
     output_dir=output_dir
 )
 model_config = Model_Config(

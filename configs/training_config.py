@@ -26,6 +26,8 @@ class Training_Config:
     metric_for_best_model: str = "eval_accuracy"
     greater_is_better: bool = True
     
+    fp16: bool = False
+    
     freeze_backbone: bool = False
     eval_size: float = 0.2
     

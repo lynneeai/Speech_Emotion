@@ -27,6 +27,7 @@ parser.add_argument("--train_batch_size", type=int, default=4)
 parser.add_argument("--eval_batch_size", type=int, default=4)
 parser.add_argument("--epochs", type=int, default=3)
 parser.add_argument("--lr", type=float, default=5e-5)
+parser.add_argument("--fp16", action="store_true")
 parser.add_argument("--output_dir", default="./model_outputs")
 args = parser.parse_args()
 
@@ -50,6 +51,7 @@ training_config = Training_Config(
     per_device_eval_batch_size=args.eval_batch_size,
     num_train_epochs=args.epochs,
     learning_rate=args.lr,
+    fp16=args.fp16,
     output_dir=output_dir,
     logging_dir=f"{output_dir}/logs"
 )

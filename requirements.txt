@@ -1,7 +1,9 @@
+accelerate==0.26.1
 datasets==2.14.5
 optuna==3.5.0
 pandas==2.2.0
 scikit_learn==1.4.0
 torch==2.0.1
+torchaudio==2.0.1
 torcheval==0.0.7
 transformers==4.37.2

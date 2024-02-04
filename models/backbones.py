@@ -51,7 +51,7 @@ class Wav2Vec2Backbone(nn.Module):
     def freeze(self):
         for param in self.model.parameters():
             param.requires_grad = False
-        self.model.freeze_feature_extractor()
+        self.model.freeze_feature_encoder()
     
     def get_hidden_size(self):
         return self.model.config.hidden_size

@@ -161,3 +161,4 @@ cython_debug/
 
 # model checkpoints and logs
 model_outputs/
+hp_search_outputs/

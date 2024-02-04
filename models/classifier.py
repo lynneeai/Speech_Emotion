@@ -6,29 +6,51 @@ from transformers.file_utils import ModelOutput
 from torcheval.metrics import MulticlassAccuracy
 
 from configs import Model_Config
-from .backbones import Whisper_Encoder_Backbone, Wav2Vec2Bert_Backbone
+from .backbones import WhisperEncoderBackbone, Wav2Vec2BertBackbone, Wav2Vec2Backbone
 
 
 @dataclass
-class Speech_Classifier_Output(ModelOutput):
+class SpeechClassifierOutput(ModelOutput):
     logits: torch.FloatTensor = None
     loss: torch.FloatTensor = None
+        
+class ClassificationHeadWithMLP(nn.Module):
+    def __init__(self, hidden_size, num_labels, dropout=0.0):
+        super(ClassificationHeadWithMLP, self).__init__()
+        
+        self.dense = nn.Linear(hidden_size, hidden_size)
+        self.dropout = nn.Dropout(dropout)
+        self.out_proj = nn.Linear(hidden_size, num_labels)
+
+    def forward(self, inputs):
+        x = inputs
+        x = self.dropout(x)
+        x = self.dense(x)
+        x = torch.tanh(x)
+        x = self.dropout(x)
+        x = self.out_proj(x)
+        return x
 
 
-class Speech_Emotion_Classifier(nn.Module):
+class SpeechEmotionClassifier(nn.Module):
     def __init__(self, config: Model_Config):
-        super(Speech_Emotion_Classifier, self).__init__()
+        super(SpeechEmotionClassifier, self).__init__()
         self.config = config
 
         if "whisper" in config.backbone_model:
-            self.backbone = Whisper_Encoder_Backbone(config)
+            self.backbone = WhisperEncoderBackbone(config)
         elif "w2v-bert-2.0" in config.backbone_model:
-            self.backbone = Wav2Vec2Bert_Backbone(config)
+            self.backbone = Wav2Vec2BertBackbone(config)
+        elif "wav2vec2" in config.backbone_model:
+            self.backbone = Wav2Vec2Backbone(config)
         else:
             raise Exception(f"Unsupported backbone: {config.backbone_model}")
         
-        self.projector = nn.Linear(self.backbone.get_hidden_size(), config.classifier_proj_size)
-        self.classifier = nn.Linear(config.classifier_proj_size, config.num_labels)
+        if config.with_mlp:
+            self.classifier = ClassificationHeadWithMLP(self.backbone.get_hidden_size(), config.num_labels)
+        else:
+            self.projector = nn.Linear(self.backbone.get_hidden_size(), config.classifier_proj_size)
+            self.classifier = nn.Linear(config.classifier_proj_size, config.num_labels)
 
         self.loss_fct = nn.CrossEntropyLoss()
 
@@ -51,13 +73,16 @@ class Speech_Emotion_Classifier(nn.Module):
 
     def forward(self, input_features, labels, attention_mask=None):
         backbone_outputs = self.backbone(input_features, attention_mask=attention_mask)
-        proj_outputs = self.projector(backbone_outputs)
-        pooled_outputs = self.pool_outputs(proj_outputs, self.config.pooling_mode)
+        if self.config.with_mlp:
+            pooled_outputs = self.pool_outputs(backbone_outputs, self.config.pooling_mode)
+        else:
+            proj_outputs = self.projector(backbone_outputs)
+            pooled_outputs = self.pool_outputs(proj_outputs, self.config.pooling_mode)
         
         logits = self.classifier(pooled_outputs)
         loss = self.loss_fct(logits.view(-1, self.config.num_labels), labels)
 
-        return Speech_Classifier_Output(logits=logits, loss=loss)
+        return SpeechClassifierOutput(logits=logits, loss=loss)
     
     
 def compute_metrics(p: EvalPrediction):

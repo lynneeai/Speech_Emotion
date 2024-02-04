@@ -11,7 +11,18 @@ parser = argparse.ArgumentParser()
 # required arguments
 parser.add_argument("--devices", required=True, type=str, help="GPU ids separated by comma, e.g. 0,1 or 1")
 # optional arguments
-parser.add_argument("--backbone", choices=["facebook/w2v-bert-2.0", "openai/whisper-medium"], default="facebook/w2v-bert-2.0")
+parser.add_argument(
+    "--backbone", 
+    choices=["facebook/w2v-bert-2.0", "openai/whisper-medium", "facebook/wav2vec2-base-960h"], 
+    default="facebook/w2v-bert-2.0"
+)
+parser.add_argument(
+    "--dataset",
+    choices=["ravdess", "iemocap"],
+    default="ravdess"
+)
+parser.add_argument("--freeze_backbone", action="store_true")
+parser.add_argument("--with_mlp", action="store_true")
 parser.add_argument("--train_batch_size", type=int, default=4)
 parser.add_argument("--eval_batch_size", type=int, default=4)
 parser.add_argument("--epochs", type=int, default=3)
@@ -25,16 +36,27 @@ args = parser.parse_args()
 now_dt = datetime.now()
 timestamp = now_dt.strftime("%m-%d-%y-%H:%M")
 
+output_dir = f"{args.output_dir}/{args.dataset}/{args.backbone.split('/')[-1]}"
+if args.freeze_backbone:
+    output_dir += "_frozen"
+if args.with_mlp:
+    output_dir += "_mlp"
+output_dir += f"_{timestamp}"
+
 training_config = Training_Config(
     devices=[int(d) for d in args.devices.split(",")],
+    freeze_backbone=args.freeze_backbone,
     per_device_train_batch_size=args.train_batch_size,
     per_device_eval_batch_size=args.eval_batch_size,
     num_train_epochs=args.epochs,
     learning_rate=args.lr,
-    output_dir=f"{args.output_dir}/{args.backbone.split('/')[-1]}_{timestamp}",
-    logging_dir=f"{args.output_dir}/{args.backbone.split('/')[-1]}_{timestamp}/logs"
+    output_dir=output_dir,
+    logging_dir=f"{output_dir}/logs"
 )
-model_config = Model_Config(args.backbone)
+model_config = Model_Config(
+    backbone_model=args.backbone,
+    with_mlp=args.with_mlp
+)
 
 if not os.path.exists(training_config.output_dir):
     os.makedirs(training_config.output_dir)
@@ -44,7 +66,7 @@ json.dump(config_json, open(f"{training_config.output_dir}/config.json", "w"), i
 ##############
 ## set GPUs ##
 ##############
-configure_gpu_device(training_config)
+configure_gpu_device(config=training_config)
 
 
 #####################
@@ -59,9 +81,9 @@ import torch
 from sklearn.metrics import classification_report
 from transformers import TrainingArguments, ProgressCallback
 
-from trainer import SEC_Trainer, No_Loss_Logging_In_Terminal_Callback
-from data.data_utils import load_data, get_feature_extractor, DataCollatorWithPadding
-from models.classifier import Speech_Emotion_Classifier, compute_metrics
+from trainer import SECTrainer, NoLossLoggingInTerminalCallback
+from data.data_utils import DatasetInfo, load_data, get_feature_extractor, DataCollatorWithPadding
+from models.classifier import SpeechEmotionClassifier, compute_metrics
 from data.ravdess import _FEAT_DICT
 
 
@@ -72,7 +94,7 @@ print("Loading data...")
 feature_extractor = get_feature_extractor(model_config.backbone_model)
 data_collator = DataCollatorWithPadding(feature_extractor)
 dataset = load_data(
-    data_script_path="./data/ravdess.py", 
+    data_script_path=DatasetInfo[args.dataset]["data_script_path"], 
     test_size=training_config.eval_size,
     sampling_rate=feature_extractor.sampling_rate,
     save_test_to_disk=True, 
@@ -84,7 +106,8 @@ dataset = load_data(
 ## initialize model ##
 ######################
 print(f"Initializing model with {model_config.backbone_model} backbone...")
-model = Speech_Emotion_Classifier(model_config)
+model_config.num_labels = DatasetInfo[args.dataset]["num_labels"]
+model = SpeechEmotionClassifier(model_config)
 if training_config.freeze_backbone:
     model.freeze_backbone()
 model.print_trainable_parameters()
@@ -98,7 +121,7 @@ training_args = {
 }
 training_args = TrainingArguments(**training_args)
 
-trainer = SEC_Trainer(
+trainer = SECTrainer(
     model=model,
     data_collator=data_collator,
     args=training_args,
@@ -107,7 +130,7 @@ trainer = SEC_Trainer(
     eval_dataset=dataset["test"]
 )
 trainer.callback_handler.remove_callback(ProgressCallback)
-trainer.callback_handler.add_callback(No_Loss_Logging_In_Terminal_Callback)
+trainer.callback_handler.add_callback(NoLossLoggingInTerminalCallback)
 
 print("Training...")
 # import pdb; pdb.set_trace()

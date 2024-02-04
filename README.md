@@ -11,4 +11,9 @@ To start training
 python train.py --devices 0
 ```
 
+To tune hyperparameters
+```bash
+bash hp_search_whisper.sh
+```
+
 Currenly only supports single GPU. Still debugging for multi-GPU.

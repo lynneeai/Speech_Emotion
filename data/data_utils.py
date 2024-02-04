@@ -3,12 +3,34 @@ import pickle
 import torch
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Union
-from transformers import SeamlessM4TFeatureExtractor, WhisperFeatureExtractor
+from transformers import SeamlessM4TFeatureExtractor, WhisperFeatureExtractor, Wav2Vec2FeatureExtractor
+
+
+DatasetInfo = {
+    "ravdess": {
+        "data_script_path": "data/ravdess.py",
+        "num_labels": 8
+    },
+    "iemocap": {
+        "data_script_path": "minoosh/IEMOCAP_Speech_dataset",
+        "num_labels": 4
+    }
+}
 
 
 def load_data(data_script_path, test_size, sampling_rate=16000, save_test_to_disk=False, test_file_path=None):
-    dataset = datasets.load_dataset(data_script_path)
-    dataset = dataset["train"].train_test_split(test_size=test_size)
+    if "ravdess" in data_script_path:
+        dataset = datasets.load_dataset(data_script_path, split="train")
+    elif "IEMOCAP" in data_script_path:
+        dataset = datasets.load_dataset(
+            data_script_path, 
+            split="Session1+Session2+Session3+Session4+Session5"
+        )
+        dataset = dataset.rename_column("emotion", "labels")
+    else:
+        raise Exception("Unsupported dataset.")
+        
+    dataset = dataset.train_test_split(test_size=test_size)
     if save_test_to_disk:
         pickle.dump(dataset["test"], open(test_file_path, "wb"))
     dataset = dataset.cast_column("audio", datasets.Audio(sampling_rate=sampling_rate))
@@ -16,11 +38,15 @@ def load_data(data_script_path, test_size, sampling_rate=16000, save_test_to_dis
         
 
 def get_feature_extractor(backbone_model):
-    feature_extractor = (
-        SeamlessM4TFeatureExtractor.from_pretrained(backbone_model)
-        if "w2v-bert-2.0" in backbone_model else
-        WhisperFeatureExtractor.from_pretrained(backbone_model)
-    )
+    if "whisper" in backbone_model:
+        feature_extractor = WhisperFeatureExtractor.from_pretrained(backbone_model)
+    elif "w2v-bert-2.0" in backbone_model:
+        feature_extractor = SeamlessM4TFeatureExtractor.from_pretrained(backbone_model)
+    elif "wav2vec2" in backbone_model:
+        feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(backbone_model)
+    else:
+        raise Exception(f"Unsupported backbone: {backbone_model}")
+
     return feature_extractor
 
 
@@ -50,7 +76,7 @@ class DataCollatorWithPadding:
             7.5 (Volta).
     """
 
-    feature_extractor: Union[SeamlessM4TFeatureExtractor, WhisperFeatureExtractor]
+    feature_extractor: Union[SeamlessM4TFeatureExtractor, WhisperFeatureExtractor, Wav2Vec2FeatureExtractor]
     padding: Union[bool, str] = True
     max_length: Optional[int] = None
     max_length_labels: Optional[int] = None
@@ -59,14 +85,24 @@ class DataCollatorWithPadding:
 
     def __call__(self, features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
         sampling_rate = self.feature_extractor.sampling_rate
-        input_features = [
-            {
-                "input_features": self.feature_extractor(
-                    feature["audio"]["array"], sampling_rate=sampling_rate
-                )["input_features"][0]
-            } 
-            for feature in features
-        ]
+        if isinstance(self.feature_extractor, Wav2Vec2FeatureExtractor):
+            input_features = [
+                {
+                    "input_values": self.feature_extractor(
+                        feature["audio"]["array"], sampling_rate=sampling_rate
+                    )["input_values"][0]
+                } 
+                for feature in features
+            ]
+        else:
+            input_features = [
+                {
+                    "input_features": self.feature_extractor(
+                        feature["audio"]["array"], sampling_rate=sampling_rate
+                    )["input_features"][0]
+                } 
+                for feature in features
+            ]
 
         batch = self.feature_extractor.pad(
             input_features,
@@ -75,6 +111,10 @@ class DataCollatorWithPadding:
             pad_to_multiple_of=self.pad_to_multiple_of,
             return_tensors="pt",
         )
+        
+        if isinstance(self.feature_extractor, Wav2Vec2FeatureExtractor):
+            batch["input_features"] = batch["input_values"]
+            del batch["input_values"]
         
         labels = torch.LongTensor([feature["labels"] for feature in features])
         batch["labels"] = labels

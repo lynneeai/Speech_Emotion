@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, Dataset
 from typing import Optional
 
 
-class SEC_Trainer(Trainer):
+class SECTrainer(Trainer):
     def get_train_dataloader(self) -> DataLoader:
         """
         Returns the training [`~torch.utils.data.DataLoader`].
@@ -110,7 +110,7 @@ class SEC_Trainer(Trainer):
         return self.accelerator.prepare(DataLoader(test_dataset, **dataloader_params))
     
     
-class No_Loss_Logging_In_Terminal_Callback(ProgressCallback):
+class NoLossLoggingInTerminalCallback(ProgressCallback):
     def on_log(self, args, state, control, logs=None, **kwargs):
         """
         Overrides parent class to disable loss string printing in terminal.

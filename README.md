@@ -32,3 +32,8 @@ Currenly only supports single GPU. Still debugging for multi-GPU.
 | **Fine-tuned Whisper+ClassHead**   | **0.88** | **0.88** |
 | Frozen Whisper+ClassHead           |   0.74   |   0.74   |
 | Frozen Whisper+MLP+ClassHead       |   0.81   |   0.81   |
+
+### IEMOCAP
+|                                    |    Acc   |    F1    |
+|------------------------------------|:--------:|:--------:|
+| **Fine-tuned Whisper+ClassHead**   | **0.74** | **0.75** |

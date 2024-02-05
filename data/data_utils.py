@@ -5,15 +5,19 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Union
 from transformers import SeamlessM4TFeatureExtractor, WhisperFeatureExtractor, Wav2Vec2FeatureExtractor
 
+from data.ravdess import _FEAT_DICT
+
 
 DatasetInfo = {
     "ravdess": {
         "data_script_path": "data/ravdess.py",
-        "num_labels": 8
+        "num_labels": 8,
+        "label_names": _FEAT_DICT["Emotion"]
     },
     "iemocap": {
         "data_script_path": "minoosh/IEMOCAP_Speech_dataset",
-        "num_labels": 4
+        "num_labels": 4,
+        "label_names": ["angry", "happy", "neutral", "sad"]
     }
 }
 

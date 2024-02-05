@@ -86,7 +86,6 @@ from transformers import TrainingArguments, ProgressCallback
 from trainer import SECTrainer, NoLossLoggingInTerminalCallback
 from data.data_utils import DatasetInfo, load_data, get_feature_extractor, DataCollatorWithPadding
 from models.classifier import SpeechEmotionClassifier, compute_metrics
-from data.ravdess import _FEAT_DICT
 
 
 ##################
@@ -145,7 +144,7 @@ print(f"Testing...")
 prediction_outputs = trainer.predict(dataset["test"])
 preds = torch.argmax(torch.tensor(prediction_outputs.predictions), dim=1).detach().cpu().numpy()
 labels = prediction_outputs.label_ids
-label_names = _FEAT_DICT["Emotion"]
+label_names = DatasetInfo[args.dataset]["label_names"]
 report = classification_report(labels, preds, target_names=label_names)
 print(report)
 with open(f"{training_config.output_dir}/test_classification_report.txt", "w") as outfile:

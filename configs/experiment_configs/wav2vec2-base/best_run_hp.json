@@ -1,0 +1,6 @@
+{
+    "run_id": "17",
+    "learning_rate": 5.889136485783835e-05,
+    "num_train_epochs": 7,
+    "per_device_train_batch_size": 16
+}
